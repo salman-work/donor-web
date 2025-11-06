@@ -19,6 +19,24 @@
         "webRoot": "${workspaceFolder}"
       },
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Next.js: Debug Full Stack",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": true,
+      "serverReadyAction": {
+        "action": "debugWithChrome", // Or "debugWithEdge"
+        "pattern": "ready on",
+        "uriFormat": "http://salmanhome.com:%s",
+        "args": "80" // Adjust if your Next.js port is different
+        //cross-env NODE_OPTIONS=--no-deprecation next dev -H salmanhome.com -p 80
+      }
     }
   ]
 }

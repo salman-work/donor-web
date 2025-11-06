@@ -733,6 +733,22 @@ export interface Form {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Choose where uploaded files should be stored for this field.
+   */
+  storageTarget?: ('donornest' | 'payload') | null;
+  /**
+   * Select allowed MIME types for uploads. Leave blank to use site defaults (configured in .env).
+   */
+  allowedMimeTypes?: ('image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' | 'application/pdf')[] | null;
+  /**
+   * Maximum file size in bytes. Leave blank to use site default (e.g. 5242880).
+   */
+  maxFileSize?: number | null;
+  /**
+   * If checked, the form field will accept multiple files.
+   */
+  multiple?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1468,6 +1484,10 @@ export interface FormsSelect<T extends boolean = true> {
         message?: T;
         id?: T;
       };
+  storageTarget?: T;
+  allowedMimeTypes?: T;
+  maxFileSize?: T;
+  multiple?: T;
   updatedAt?: T;
   createdAt?: T;
 }
