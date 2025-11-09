@@ -94,13 +94,14 @@ export default async function Campaign({ params: paramsPromise }: Args) {
       <div className="w-full mx-auto flex flex-col md:flex-row gap-6">
         <section className="w-full md:w-[60%] bg-white rounded-lg shadow p-4 md:mb-0">
           <div className="w-full mb-4">
-            <div className="w-full h-56 md:h-72 relative rounded overflow-hidden bg-gray-100">
+            <div className="w-full h-56 md:h-72 relative rounded overflow-hidden bg-transparent flex items-center justify-center">
               <Image
                 src={heroUrl}
                 alt={titleSafe}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover"
+                className="object-contain object-center bg-transparent"
+                style={{ backgroundColor: 'transparent' }}
               />
             </div>
           </div>
@@ -145,19 +146,18 @@ export default async function Campaign({ params: paramsPromise }: Args) {
           <div className="flex items-center gap-4">
             <div className="w-24 h-24 flex items-center justify-center">
               <svg viewBox="0 0 36 36" className="w-24 h-24">
-                <path
-                  d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831"
-                  fill="none"
-                  stroke="#eee"
-                  strokeWidth="3.5"
-                />
-                <path
-                  d="M18 2.0845a15.9155 15.9155 0 1 1 0 31.831"
+                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#eee" strokeWidth="3.5" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15.9155"
                   fill="none"
                   stroke="#10b981"
                   strokeWidth="3.5"
-                  strokeDasharray={`${percent}, 100`}
                   strokeLinecap="round"
+                  strokeDasharray={`${percent} 100`}
+                  pathLength="100"
+                  transform="rotate(-90 18 18)"
                 />
                 <text x="18" y="20" textAnchor="middle" fontSize="6" fill="#111">
                   {percent}%
@@ -168,19 +168,17 @@ export default async function Campaign({ params: paramsPromise }: Args) {
             <div className="flex-1">
               <div className="text-lg font-semibold">
                 {amountRaised.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
+                <span> raised</span>
               </div>
-              <div className="text-sm text-gray-500">Raised</div>
 
-              <div className="mt-3 text-sm text-gray-700">
+              <div className="text-sm text-gray-700">
                 Goal:{' '}
                 <span className="font-medium">
                   {goal > 0
                     ? goal.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
                     : '—'}
                 </span>
-              </div>
-
-              <div className="mt-2 text-sm text-gray-700">
+                <span> - </span>
                 Donations: <span className="font-medium">{donationsCount}</span>
               </div>
             </div>
