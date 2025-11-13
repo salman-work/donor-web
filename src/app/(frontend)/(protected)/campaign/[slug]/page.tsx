@@ -32,9 +32,9 @@ async function getCampaignById(id?: string) {
 
 export default async function Campaign({ params: paramsPromise }: Args) {
   const { slug = '' } = await paramsPromise
-  console.log('Campaign slug:', slug)
+
   const campaign = (await getCampaignById(slug)) as Record<string, unknown> | null
-  console.log('Fetched campaign:', campaign)
+
   if (!campaign) return <div className="p-6">Campaign not found</div>
 
   const base = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_SERVER_URL || ''

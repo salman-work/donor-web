@@ -32,7 +32,7 @@ export default function CampaignActions({ slug, title, description }: Props) {
     <>
       <div className="mb-3">
         <a
-          href={`/campaigns/${encodeURIComponent(slug)}/donate`}
+          href={`/campaign/${encodeURIComponent(slug)}/donate`}
           className="w-full block text-center py-2 rounded bg-primary text-white font-semibold"
         >
           Donate
