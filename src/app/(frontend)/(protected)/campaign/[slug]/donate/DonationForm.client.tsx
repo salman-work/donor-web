@@ -1,5 +1,7 @@
 'use client'
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js'
 // small icons use emoji to avoid adding new dependencies
 
 type Campaign = {
@@ -28,6 +30,117 @@ export default function DonationForm({ campaign }: Props) {
   const [customTipAmount, setCustomTipAmount] = useState<number | ''>('')
   const [paymentMethod, setPaymentMethod] = useState<string>('paypal')
   const [dontDisplayName, setDontDisplayName] = useState(false)
+  const [cardName, setCardName] = useState<string>('')
+
+  // Stripe promise for Elements provider
+  // Use NEXT_PUBLIC_STRIPE_PK so the publishable key is available in the browser bundle
+  const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PK || '')
+
+  // Child component that handles card input and confirmation using the React Stripe wrapper
+  function CardPayment({
+    slugProp,
+    selectedAmountProp,
+    frequencyProp,
+    tipOverride,
+  }: {
+    slugProp: string
+    selectedAmountProp: number
+    frequencyProp: 'once' | 'monthly'
+    tipOverride?: number | ''
+  }) {
+    const stripe = useStripe()
+    const elements = useElements()
+    const [loadingCard, setLoadingCard] = useState(false)
+
+    const handleCardDonate = async () => {
+      if (!stripe || !elements) {
+        alert('Payment system is not ready. Please try again.')
+        return
+      }
+
+      if (!selectedAmountProp || selectedAmountProp <= 0) {
+        alert('Please select or enter a donation amount')
+        return
+      }
+
+      setLoadingCard(true)
+      try {
+        const tip =
+          frequencyProp === 'monthly'
+            ? selectedAmountProp * 0.05
+            : typeof tipOverride === 'number'
+              ? Number(tipOverride)
+              : selectedAmountProp * (tipPercent / 100)
+        const total = Number((selectedAmountProp + (tip || 0)).toFixed(2))
+
+        // Create a PaymentIntent on the server
+        const resp = await fetch('/api/payments/stripe/create-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: total }),
+        })
+        const data = await resp.json()
+        const clientSecret = data?.clientSecret
+        if (!clientSecret) {
+          alert('Failed to initialize card payment')
+          return
+        }
+
+        const cardElement = elements.getElement(CardElement)
+        if (!cardElement) {
+          alert('Card input not found')
+          return
+        }
+
+        const result = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: {
+            card: cardElement,
+            billing_details: { name: cardName || undefined },
+          },
+        })
+
+        if (result.error) {
+          console.error(result.error)
+          alert(result.error.message || 'Payment failed')
+          return
+        }
+
+        if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+          // TODO: call server to persist donation or show success page
+          window.location.href = `/campaign/${slugProp}`
+          return
+        }
+        alert('Payment was not completed')
+      } catch (err) {
+        console.error(err)
+        alert('Payment initialization failed')
+      } finally {
+        setLoadingCard(false)
+      }
+    }
+
+    return (
+      <div className="mt-3 space-y-2">
+        <input
+          placeholder="Name on card"
+          className="w-full p-2 border rounded"
+          value={cardName}
+          onChange={(e) => setCardName(e.target.value)}
+        />
+        <div className="p-2 border rounded bg-white">
+          <CardElement options={{ hidePostalCode: true }} />
+        </div>
+        <div className="text-xs text-gray-500">Secure card input powered by Stripe.</div>
+        <button
+          onClick={handleCardDonate}
+          disabled={loadingCard}
+          className={`w-full py-3 rounded font-semibold ${loadingCard ? 'opacity-60 cursor-wait' : 'bg-primary text-white'}`}
+        >
+          Donate with Card
+        </button>
+      </div>
+    )
+  }
 
   // compute amounts buttons (6 values)
   const amounts = useMemo(() => {
@@ -104,18 +217,8 @@ export default function DonationForm({ campaign }: Props) {
         }
         alert('PayPal create failed')
       } else if (paymentMethod === 'card') {
-        console.log('paymentMethod card selected', { total, frequency, slug })
-        const resp = await fetch('/api/payments/stripe/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total, frequency, slug }),
-        })
-        const data = await resp.json()
-        if (data?.url) {
-          window.location.href = data.url
-          return
-        }
-        alert('Stripe create failed')
+        // Card payments are handled by the embedded Stripe CardPayment component.
+        alert('Please complete payment using the card form below.')
       } else {
         alert('Payment method not yet implemented for this provider')
       }
@@ -287,16 +390,16 @@ export default function DonationForm({ campaign }: Props) {
             ))}
           </div>
 
-          {/* credit card fields */}
+          {/* credit card fields (Stripe Elements) */}
           {paymentMethod === 'card' && (
-            <div className="mt-3 space-y-2">
-              <input placeholder="Name on card" className="w-full p-2 border rounded" />
-              <input placeholder="Card number" className="w-full p-2 border rounded" />
-              <div className="flex gap-2">
-                <input placeholder="MM/YY" className="flex-1 p-2 border rounded" />
-                <input placeholder="CVC" className="w-24 p-2 border rounded" />
-              </div>
-            </div>
+            <Elements stripe={stripePromise}>
+              <CardPayment
+                slugProp={slug}
+                selectedAmountProp={selectedAmount}
+                frequencyProp={frequency}
+                tipOverride={showCustomTip && customTipAmount !== '' ? customTipAmount : ''}
+              />
+            </Elements>
           )}
         </div>
 
@@ -353,20 +456,22 @@ export default function DonationForm({ campaign }: Props) {
           )}
         </div>
 
-        {/* Donate button */}
-        <div className="mb-3">
-          <button
-            onClick={handleDonate}
-            disabled={loading}
-            className={`w-full py-3 rounded font-semibold ${loading ? 'opacity-60 cursor-wait' : 'bg-primary text-white'}`}
-          >
-            {paymentMethod === 'paypal'
-              ? 'Pay via PayPal'
-              : paymentMethod === 'bank'
-                ? 'Donate (Bank transfer)'
-                : 'Donate with Card'}
-          </button>
-        </div>
+        {/* Donate button for non-card methods (card handled by CardPayment) */}
+        {paymentMethod !== 'card' && (
+          <div className="mb-3">
+            <button
+              onClick={handleDonate}
+              disabled={loading}
+              className={`w-full py-3 rounded font-semibold ${loading ? 'opacity-60 cursor-wait' : 'bg-primary text-white'}`}
+            >
+              {paymentMethod === 'paypal'
+                ? 'Pay via PayPal'
+                : paymentMethod === 'bank'
+                  ? 'Donate (Bank transfer)'
+                  : 'Donate'}
+            </button>
+          </div>
+        )}
 
         <hr className="my-3 border-gray-200" />
         <div className="text-xs text-gray-600">
