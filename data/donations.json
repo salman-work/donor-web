@@ -1,0 +1,57 @@
+[
+  {
+    "id": "pi_3STF96CtJChIJHGu019JiC4m",
+    "chargeId": null,
+    "grossAmountCents": 2000,
+    "donationAmountCents": 0,
+    "tipAmountCents": 0,
+    "stripeFeeCents": 0,
+    "stripeNetCents": 0,
+    "transferredToPeerCents": null,
+    "currency": "usd",
+    "status": "succeeded",
+    "metadata": {},
+    "createdAt": "2025-11-14T05:02:08.403Z"
+  },
+  {
+    "id": "pi_3STFABCtJChIJHGu0BqDv6YY",
+    "chargeId": null,
+    "grossAmountCents": 88000,
+    "donationAmountCents": 80000,
+    "tipAmountCents": 8000,
+    "stripeFeeCents": 0,
+    "stripeNetCents": 0,
+    "transferredToPeerCents": null,
+    "currency": "usd",
+    "status": "succeeded",
+    "metadata": {
+      "campaign_id": "9ad7be8f-0a1b-4c70-be95-a9a6f0188b94",
+      "donation_amount_cents": "80000",
+      "tip_amount_cents": "8000",
+      "donor_id": ""
+    },
+    "createdAt": "2025-11-14T05:03:14.074Z"
+  },
+  {
+    "id": "pi_3STFZ5CtJChIJHGu1PEDHEAu",
+    "chargeId": null,
+    "grossAmountCents": 110000,
+    "donationAmountCents": 100000,
+    "tipAmountCents": 10000,
+    "stripeFeeCents": 0,
+    "stripeNetCents": 0,
+    "transferredToPeerCents": null,
+    "connectedAccountId": "acct_1STDxIE1QYRe1FY9",
+    "donorId": "f811808c-0eb1-47a5-a159-d72596dd68d5",
+    "campaignId": "9ad7be8f-0a1b-4c70-be95-a9a6f0188b94",
+    "currency": "usd",
+    "status": "succeeded",
+    "metadata": {
+      "campaign_id": "9ad7be8f-0a1b-4c70-be95-a9a6f0188b94",
+      "donor_id": "f811808c-0eb1-47a5-a159-d72596dd68d5",
+      "donation_amount_cents": "100000",
+      "tip_amount_cents": "10000"
+    },
+    "createdAt": "2025-11-14T05:29:02.582Z"
+  }
+]

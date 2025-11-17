@@ -16,11 +16,17 @@ type Props = {
   campaign: Campaign
 }
 
+type User = {
+  id?: string
+  stripeAccountId?: string
+}
+
 export default function DonationForm({ campaign }: Props) {
   const goal = Number(campaign.goal ?? 0)
   const raised = Number(campaign.amountRaised ?? 0)
   const remaining = Math.max(0, goal - raised)
   const slug = campaign.slug || 'unknown-campaign'
+  const campaignId = campaign.id || ''
 
   const [frequency, setFrequency] = useState<'once' | 'monthly'>('once')
   const [selectedAmount, setSelectedAmount] = useState<number>(0)
@@ -30,7 +36,8 @@ export default function DonationForm({ campaign }: Props) {
   const [customTipAmount, setCustomTipAmount] = useState<number | ''>('')
   const [paymentMethod, setPaymentMethod] = useState<string>('paypal')
   const [dontDisplayName, setDontDisplayName] = useState(false)
-  const [cardName, setCardName] = useState<string>('')
+  // cardName moved into CardPayment component to avoid parent re-renders
+  const [user, setUser] = useState<User | null>(null)
 
   // Stripe promise for Elements provider
   // Use NEXT_PUBLIC_STRIPE_PK so the publishable key is available in the browser bundle
@@ -38,11 +45,13 @@ export default function DonationForm({ campaign }: Props) {
 
   // Child component that handles card input and confirmation using the React Stripe wrapper
   function CardPayment({
+    campaignIdProp,
     slugProp,
     selectedAmountProp,
     frequencyProp,
     tipOverride,
   }: {
+    campaignIdProp: string
     slugProp: string
     selectedAmountProp: number
     frequencyProp: 'once' | 'monthly'
@@ -51,6 +60,7 @@ export default function DonationForm({ campaign }: Props) {
     const stripe = useStripe()
     const elements = useElements()
     const [loadingCard, setLoadingCard] = useState(false)
+    const [cardName, setCardName] = useState<string>('')
 
     const handleCardDonate = async () => {
       if (!stripe || !elements) {
@@ -71,13 +81,26 @@ export default function DonationForm({ campaign }: Props) {
             : typeof tipOverride === 'number'
               ? Number(tipOverride)
               : selectedAmountProp * (tipPercent / 100)
-        const total = Number((selectedAmountProp + (tip || 0)).toFixed(2))
+        // total (dollars) computed for display only
 
-        // Create a PaymentIntent on the server
+        // Create a PaymentIntent on the server. Send donation and tip as cents
+
+        //const campaignAny: any = campaign
+        const connectedAccountId = user?.stripeAccountId || null
+        //campaignAny?.connectedStripeAccountId || campaignAny?.stripeAccountId || ''
         const resp = await fetch('/api/payments/stripe/create-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total }),
+          body: JSON.stringify({
+            donationAmountCents: Math.round(selectedAmountProp * 100),
+            tipAmountCents: Math.round((tip || 0) * 100),
+            currency: 'usd',
+            connectedAccountId,
+            // include the current user's stripe account id and donor id if present
+            userStripeAccountId: user?.stripeAccountId || null,
+            donorId: user?.id || null,
+            campaignId: campaignIdProp,
+          }),
         })
         const data = await resp.json()
         const clientSecret = data?.clientSecret
@@ -165,6 +188,25 @@ export default function DonationForm({ campaign }: Props) {
     setPaymentMethod(frequency === 'monthly' ? 'paypal' : 'paypal')
   }, [frequency])
 
+  // load current user (to access stripeAccountId)
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/profile/me')
+        if (!res.ok) return
+        const data = await res.json()
+        if (!mounted) return
+        setUser(data || null)
+      } catch (_err) {
+        // ignore
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   const selectAmount = (amount: number, index: number) => {
     setSelectedAmount(amount)
     setSelectedIndex(index)
@@ -208,7 +250,13 @@ export default function DonationForm({ campaign }: Props) {
         const resp = await fetch('/api/payments/paypal/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total }),
+          body: JSON.stringify({
+            amount: total,
+            userStripeAccountId: user?.stripeAccountId || null,
+            donorId: user?.id || null,
+            campaignId: slug,
+            connectedAccountId: user?.stripeAccountId || null,
+          }),
         })
         const data = await resp.json()
         if (data?.url) {
@@ -394,6 +442,7 @@ export default function DonationForm({ campaign }: Props) {
           {paymentMethod === 'card' && (
             <Elements stripe={stripePromise}>
               <CardPayment
+                campaignIdProp={campaignId}
                 slugProp={slug}
                 selectedAmountProp={selectedAmount}
                 frequencyProp={frequency}

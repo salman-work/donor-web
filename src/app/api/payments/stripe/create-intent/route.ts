@@ -1,31 +1,53 @@
 import { NextResponse } from 'next/server'
+import Stripe from 'stripe'
+
+const stripeSecret = process.env.STRIPE_SECRET_KEY || ''
+const stripe = new Stripe(stripeSecret)
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const amount = Math.round((Number(body.amount) || 0) * 100) // cents
-    const secret = process.env.STRIPE_SECRET_KEY
-    if (!secret) return NextResponse.json({ error: 'Stripe key not configured' }, { status: 500 })
+    // Expect donation and tip as separate values (server interprets cents)
+    const donationAmountCents = Math.round(Number(body.donationAmountCents || 0))
+    const tipAmountCents = Math.round(Number(body.tipAmountCents || 0))
+    const currency = (body.currency || 'usd').toLowerCase()
+    const connectedAccountId = String(body.connectedAccountId || '')
+    const campaignId = body.campaignId || ''
+    const donorId = body.donorId || ''
 
-    const params = new URLSearchParams()
-    params.append('amount', String(amount))
-    params.append('currency', 'usd')
-    params.append('payment_method_types[]', 'card')
+    if (!stripeSecret) {
+      return NextResponse.json({ error: 'Stripe key not configured' }, { status: 500 })
+    }
 
-    const res = await fetch('https://api.stripe.com/v1/payment_intents', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const total = donationAmountCents + tipAmountCents
+    if (total <= 0) return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
+
+    if (!connectedAccountId) {
+      return NextResponse.json({ error: 'Connected account id required' }, { status: 400 })
+    }
+
+    const params: Stripe.PaymentIntentCreateParams = {
+      amount: total,
+      currency,
+      payment_method_types: ['card'],
+      metadata: {
+        donation_amount_cents: String(donationAmountCents),
+        tip_amount_cents: String(tipAmountCents),
+        campaign_id: String(campaignId),
+        donor_id: String(donorId),
       },
-      body: params.toString(),
-    })
+      application_fee_amount: tipAmountCents,
+      transfer_data: {
+        destination: connectedAccountId,
+      },
+    }
 
-    const data = await res.json()
-    if (!res.ok) return NextResponse.json({ error: data }, { status: res.status })
-
-    return NextResponse.json({ clientSecret: data.client_secret })
+    const pi = await stripe.paymentIntents.create(params)
+    return NextResponse.json({ clientSecret: pi.client_secret })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    console.error('create-intent error', err)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const msg = (err as any)?.message || String(err)
+    return NextResponse.json({ error: String(msg) }, { status: 500 })
   }
 }
